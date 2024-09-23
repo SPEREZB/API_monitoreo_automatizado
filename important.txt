@@ -1,0 +1,13 @@
+descargar smart
+https://sourceforge.net/projects/smartmontools/ 
+
+
+comandos SMARTclt
+escanear:
+smartctl --scan
+
+DISK:
+C:\Program Files\Smartmontools\bin\smartctl.exe" -A -d ata /dev/sdb 
+
+USB:
+"C:\Program Files\Smartmontools\bin\smartctl.exe" -i -d scsi /dev/sdb
