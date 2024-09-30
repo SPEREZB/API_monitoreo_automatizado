@@ -2,11 +2,12 @@ import subprocess
 from flask import Blueprint, jsonify,request, jsonify
 import psutil
 from app.models.alert_model import AlertModel
-from app.services.monitor_service import monitor_storage 
+from app.services.alert_service import AlertService 
 import logging
 
 alert_blueprint = Blueprint('alerts', __name__)
 alert_model = AlertModel()
+alert_service = AlertService()
  
 logging.basicConfig(filename='system_monitor.log', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -15,22 +16,12 @@ def create_alert_blueprint(model_instance):
     global alert_model
     alert_model = model_instance   
 
-    return alert_blueprint
-
-
+    return alert_blueprint 
 
 @alert_blueprint.route('/api/alerts', methods=['GET'])
 def get_alerts(): 
-    monitor_storage(alert_model)
-    
+    alert_service.monitor_storage(alert_model) 
     alerts = alert_model.get_all_alerts()
-     
-    if alerts:
-        logging.info(f'Alertas generadas: {alerts}')
-    else:
-        logging.info('No se detectaron alertas.')
- 
- 
     return jsonify(alerts=alerts)
 
 
@@ -45,7 +36,7 @@ def get_devices():
  
         for line in result.stdout.splitlines():
             if line.startswith('/dev/'):
-                device = line.split(' ')[0]  # Extraer el nombre del dispositivo 
+                device = line.split(' ')[0]   
                 smartctl_devices.append(device)
 
         # Usamos psutil para obtener información sobre particiones montadas

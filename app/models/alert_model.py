@@ -36,10 +36,10 @@ class AlertModel:
         return len(self.alerts)
     
     def get_disk(self):
-        """Escoger dispositivos."""
+        """Obtener disco."""
         return self.disk
     def choose_disk(self, device):
-        """Escoger dispositivos."""
+        """Escoger disco."""
         if(len(self.disk)>0):
             self.disk.clear()
         return self.disk.append(device)
