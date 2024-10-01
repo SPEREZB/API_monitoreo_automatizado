@@ -1,5 +1,7 @@
 from flask import Blueprint, jsonify, request
 from app.services.storage_service import StorageService
+import os
+import shutil
 
 storage_blueprint = Blueprint('volumen', __name__)
 data_service = StorageService()
@@ -19,7 +21,18 @@ def adjust_storage():
 
 @storage_blueprint.route('/api/data/balance', methods=['POST'])
 def balance_storage():
-    """Balancea los datos entre discos y dispositivos de almacenamiento."""
-    demand = request.json.get('demand')
-    balance_result = data_service.balance_storage(demand)
-    return jsonify(balance_result)
+    """Balancea los archivos entre discos y dispositivos de almacenamiento."""
+    try:
+        disks = request.json.get('disk')
+        if not disks:
+            return jsonify({'status': 'Error', 'message': 'No se enviaron datos de discos'}), 400
+        
+        # Llamar al servicio para balancear discos
+        balanced_disks = data_service.balance_disks(disks)
+        
+        return jsonify({'status': 'Balance completado', 'disks': balanced_disks})
+
+    except Exception as e:
+        return jsonify({'status': 'Error al balancear', 'error': str(e)})
+
+ 
