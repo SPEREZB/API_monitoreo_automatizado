@@ -1,3 +1,5 @@
+import os
+import sqlite3
 import subprocess 
 import psutil 
 from time import sleep
@@ -64,23 +66,37 @@ class AlertService:
                 
         
     def disk(self,alert_model):
-            disk_usage = psutil.disk_usage('/')
-            disk_io_counters = psutil.disk_io_counters()
-            read_errs = getattr(disk_io_counters, 'read_errs', 0)
-            write_errs = getattr(disk_io_counters, 'write_errs', 0)
-            disk_errors = read_errs + write_errs
+        disk_usage = psutil.disk_usage('/')
+        disk_io_counters = psutil.disk_io_counters()
 
-            disk_usage_alert = f"El uso del disco ha alcanzado {disk_usage.percent}%."
-            disk_error_alert = f"Se detectaron {disk_errors} errores en el disco."
+        # Errores de lectura y escritura detectados automáticamente
+        read_errs = getattr(disk_io_counters, 'read_errs', 0)
+        write_errs = getattr(disk_io_counters, 'write_errs', 0)
+        disk_errors = read_errs + write_errs  
+ 
+        disk_usage_alert = f"El uso del disco ha alcanzado {disk_usage.percent}%."
+        disk_error_alert = f"Se detectaron {disk_errors} errores en el disco."
+ 
+        if disk_usage.percent > 60:
+            alert_model.add_alert(disk_usage_alert)
+ 
+        if disk_errors > 0:
+            alert_model.add_alert(disk_error_alert)
 
-            existing_disk_alert = next((alert for alert in alert_model.alerts if "El uso del disco ha alcanzado" in alert), None)
-            if disk_usage.percent > 60:
-                alert_model.add_alert(disk_usage_alert)
-    
-            if disk_errors > 0:
-                alert_model.add_alert(disk_error_alert)
-    
-            self.monitor_smart_disk(alert_model) 
+            # Guardar los errores detectados automáticamente en la BD
+            self.save_disk_errors(disk_errors)
+ 
+        total_errors = self.get_total_errors()
+
+        # Calcular la tasa de detección automática de errores
+        if total_errors > 0:
+            detection_rate = (disk_errors / total_errors) * 100
+            detection_rate_alert = f"Tasa de detección automática: {detection_rate:.2f}%."
+            alert_model.add_alert(detection_rate_alert)
+        else:
+            alert_model.add_alert("No se detectaron errores totales.")
+  
+        self.monitor_smart_disk(alert_model) 
 
 
     def monitor_smart_disk(self,alert_model):
@@ -213,8 +229,105 @@ class AlertService:
         if valor_actual >= valor_umbral:
             return "Buen estado"  
         else:
+            self.save_alerts_errors(line)
             return "Crítico" 
 
 
     def verificar_estado_smart_usb(self,line): 
         return "Buen estado" 
+    
+    def save_alerts_errors(self, line): 
+        db_path = os.path.join(os.getcwd(), 'alerts_errors.db')
+ 
+        if os.path.exists(db_path):
+            print("La base de datos ya existe. No es necesario crearla de nuevo.")
+        else: 
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+ 
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS errores (
+                    id_campo INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nombre TEXT NOT NULL
+                )
+            ''')
+ 
+            conn.commit()
+            conn.close()
+            
+            print("Base de datos y tabla 'errores' creadas correctamente.")
+         
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Verificar si el 'line' ya existe en la tabla
+        cursor.execute("SELECT * FROM errores WHERE nombre = ?", (line,))
+        result = cursor.fetchone()
+
+        if result:
+            print("La línea ya existe en la tabla 'errores'. No se insertará.")
+        else:  
+            cursor.execute("INSERT INTO errores (nombre) VALUES (?)", (line,)) 
+            conn.commit()
+            print("Línea guardada en la tabla 'errores' correctamente.")
+ 
+        conn.close()
+ 
+    def get_alerts_errors(self): 
+        db_path = os.path.join(os.getcwd(), 'alerts_errors.db')
+ 
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+ 
+        cursor.execute('SELECT nombre FROM errores')
+        nombres = cursor.fetchall()  # Esto devuelve una lista de tuplas
+ 
+        conn.close()
+ 
+        return [nombre[0] for nombre in nombres]
+
+    def save_disk_errors(self, disk_errors): 
+        conn = sqlite3.connect('disk_errors.db')
+        cursor = conn.cursor()
+ 
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS errores (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nombre TEXT,
+                cantidad_errores INTEGER
+            )
+        ''')
+ 
+        cursor.execute('''
+            INSERT INTO errores (nombre, cantidad_errores)
+            VALUES (?, ?)
+        ''', ("DiskError", disk_errors))
+ 
+        conn.commit()
+        conn.close()
+
+
+    def get_total_errors(self): 
+        conn = sqlite3.connect('disk_errors.db')
+        cursor = conn.cursor()
+
+        # Verificar si la tabla 'errores' existe
+        cursor.execute('''
+            SELECT name FROM sqlite_master WHERE type='table' AND name='errores';
+        ''')
+        table_exists = cursor.fetchone()
+
+        if not table_exists: 
+            conn.close()
+            return 0
+ 
+        cursor.execute('SELECT SUM(cantidad_errores) FROM errores')
+        total_errors = cursor.fetchone()[0]
+
+        # Manejar el caso de que no haya errores registrados aún
+        if total_errors is None:
+            total_errors = 0
+ 
+        conn.close()
+
+        return total_errors 

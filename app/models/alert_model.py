@@ -29,7 +29,7 @@ class AlertModel:
 
     def get_all_alerts(self):
         """Devuelve la lista de alertas."""
-        return self.alerts 
+        return self.alerts
 
     def length(self):
         """Devolver la longitud de la lista de alertas."""

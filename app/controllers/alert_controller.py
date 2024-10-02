@@ -16,12 +16,11 @@ def create_alert_blueprint(model_instance):
     global alert_model
     alert_model = model_instance   
 
-    return alert_blueprint 
+    return alert_blueprint  
 
-@alert_blueprint.route('/api/alerts', methods=['GET'])
-def get_alerts(): 
-    alert_service.monitor_storage(alert_model) 
-    alerts = alert_model.get_all_alerts()
+@alert_blueprint.route('/api/report_alerts', methods=['GET'])
+def get_all_alerts_errors():
+    alerts= alert_service.get_alerts_errors()
     return jsonify(alerts=alerts)
 
 
