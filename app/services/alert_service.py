@@ -77,29 +77,15 @@ class AlertService:
         disk_usage_alert = f"El uso del disco ha alcanzado {disk_usage.percent}%."
         disk_error_alert = f"Se detectaron {disk_errors} errores en el disco."
  
-        if disk_usage.percent > 60:
-            alert_model.add_alert(disk_usage_alert)
- 
+  
         if disk_errors > 0:
             alert_model.add_alert(disk_error_alert)
 
             # Guardar los errores detectados automáticamente en la BD
-            self.save_disk_errors(disk_errors)
- 
-        total_errors = self.get_total_errors()
-
-        # Calcular la tasa de detección automática de errores
-        if total_errors > 0:
-            detection_rate = (disk_errors / total_errors) * 100
-            detection_rate_alert = f"Tasa de detección automática: {detection_rate:.2f}%."
-            alert_model.add_alert(detection_rate_alert)
-        else:
-            alert_model.add_alert("No se detectaron errores totales.")
+        self.monitor_smart_disk(alert_model, disk_usage, disk_errors, disk_usage_alert)
   
-        self.monitor_smart_disk(alert_model) 
 
-
-    def monitor_smart_disk(self,alert_model):
+    def monitor_smart_disk(self,alert_model, disk_usage, disk_errors, disk_usage_alert):
         try:
             global name_disk
             smart_data = subprocess.check_output(
@@ -112,18 +98,38 @@ class AlertService:
             definiciones_alertas = []
 
             cont = 0
+            contErrors= 0
             for line in smart_data.splitlines():
                 cont += 1
                 if cont > 7 and line.strip():
                     estado = self.verificar_estado_smart_disk(line)
                     atributo = line.split()[1]
                     mensaje_alerta = f"{line} - Estado: {estado}"
+                    if estado=="Crítico":
+                        contErrors=contErrors+1
 
                 
                     definiciones_alertas.append(f"{atributo}: {self.definiciones_smart[atributo]} - Estado: {estado}")
 
                     alertas.append(mensaje_alerta)
+
+                    if disk_usage.percent > 60:
+                      alert_model.add_alert(disk_usage_alert)
+                 
+                    total_errors = self.get_total_errors()
+
+                    # Calcular la tasa de detección automática de errores
+                    if total_errors > 0:
+                        detection_rate = (contErrors / total_errors) * 100
+                        detection_rate_alert = f"Tasa de detección automática: {detection_rate:.2f}%."
+                        alert_model.add_alert(detection_rate_alert)
+                    else:
+                        alert_model.add_alert("No se detectaron errores totales.")
+
+
                     sleep(0.5)
+         
+         
             sleep(2)
             @socketio.on('connect')
             def handle_connect():
@@ -287,20 +293,19 @@ class AlertService:
         return [nombre[0] for nombre in nombres]
 
     def save_disk_errors(self, disk_errors): 
-        conn = sqlite3.connect('disk_errors.db')
+        conn = sqlite3.connect('alerts_errors.db')
         cursor = conn.cursor()
  
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS errores (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                nombre TEXT,
-                cantidad_errores INTEGER
+                id_campo INTEGER PRIMARY KEY AUTOINCREMENT,
+                nombre TEXT 
             )
         ''')
  
         cursor.execute('''
-            INSERT INTO errores (nombre, cantidad_errores)
-            VALUES (?, ?)
+            INSERT INTO errores (nombre)
+            VALUES (?)
         ''', ("DiskError", disk_errors))
  
         conn.commit()
@@ -308,26 +313,25 @@ class AlertService:
 
 
     def get_total_errors(self): 
-        conn = sqlite3.connect('disk_errors.db')
+        conn = sqlite3.connect('alerts_errors.db')
         cursor = conn.cursor()
 
-        # Verificar si la tabla 'errores' existe
+        # Verificar si la tabla 'errores' existe, si no existe, crearla
         cursor.execute('''
-            SELECT name FROM sqlite_master WHERE type='table' AND name='errores';
+            CREATE TABLE IF NOT EXISTS errores (
+                id_campo INTEGER PRIMARY KEY AUTOINCREMENT,
+                nombre TEXT 
+            );
         ''')
-        table_exists = cursor.fetchone()
 
-        if not table_exists: 
-            conn.close()
-            return 0
- 
-        cursor.execute('SELECT SUM(cantidad_errores) FROM errores')
+        # Ejecutar la consulta para obtener la suma de errores
+        cursor.execute('SELECT COUNT(nombre) FROM errores')
         total_errors = cursor.fetchone()[0]
 
         # Manejar el caso de que no haya errores registrados aún
         if total_errors is None:
             total_errors = 0
- 
+    
         conn.close()
 
-        return total_errors 
+        return total_errors
