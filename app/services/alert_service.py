@@ -85,7 +85,7 @@ class AlertService:
         self.monitor_smart_disk(alert_model, disk_usage, disk_errors, disk_usage_alert)
   
 
-    def monitor_smart_disk(self,alert_model, disk_usage, disk_errors, disk_usage_alert):
+    def monitor_smart_disk(self, alert_model, disk_usage, disk_errors, disk_usage_alert):
         try:
             global name_disk
             smart_data = subprocess.check_output(
@@ -98,39 +98,67 @@ class AlertService:
             definiciones_alertas = []
 
             cont = 0
-            contErrors= 0
+            contErrors = 0
             for line in smart_data.splitlines():
                 cont += 1
-                if cont > 7 and line.strip():
-                    estado = self.verificar_estado_smart_disk(line)
-                    atributo = line.split()[1]
+                if cont > 7 and line.strip(): 
+                    parts = line.split()
+                    atributo = parts[1]  # Nombre del atributo
+                    value = parts[3]
+                    worst_value = parts[4]
+                    raw_value = parts[-1]
+ 
+                    if atributo in self.definiciones_smart:
+                        descripcion_atributo = self.definiciones_smart[atributo]
+                    else:
+                        descripcion_atributo = "Descripción no disponible."
+ 
+                    if atributo == "Temperature_Celsius": 
+                        if len(parts) >= 12 and '(' in parts[10]:  # Cambiar a 10 para acceder a '(Min/Max' 
+                            current_temp = parts[9].strip()  
+                            # Extraer la parte de min/max
+                            min_max_str = ' '.join(parts[10:]).strip() 
+                            min_max_str = min_max_str.replace(')', '') 
+                            try:
+                                min_temp, max_temp = min_max_str.split()[1].split('/') 
+                                detalles_atributo = (f"Valor Actual: {current_temp}°C, Mínimo: {min_temp}°C, Máximo: {max_temp}°C")
+                            except ValueError:
+                                detalles_atributo = "No se pudo extraer correctamente los valores mínimo y máximo."
+                        else:
+                            detalles_atributo = "Datos de temperatura no disponibles o formato incorrecto."
+                    else:
+                        # Para otros atributos estándar
+                        detalles_atributo = (f"Valor Actual: {value}, Peor Valor: {worst_value}, Valor Crudo: {raw_value}")
+
+
+                    # Concatenar la alerta con la descripción del atributo
+                    estado = self.verificar_estado_smart_disk(line, f"{atributo}: {descripcion_atributo} - {detalles_atributo}")
+                    definiciones_alertas.append(f"{atributo}: {descripcion_atributo} - Estado: {estado} - {detalles_atributo}")
+
+                    # Añadir alerta completa
                     mensaje_alerta = f"{line} - Estado: {estado}"
-                    if estado=="Crítico":
-                        contErrors=contErrors+1
-
-                
-                    definiciones_alertas.append(f"{atributo}: {self.definiciones_smart[atributo]} - Estado: {estado}")
-
                     alertas.append(mensaje_alerta)
 
+                    if estado == "Crítico":
+                        contErrors += 1
+ 
                     if disk_usage.percent > 60:
-                      alert_model.add_alert(disk_usage_alert)
-                 
-                    total_errors = self.get_total_errors()
+                        alert_model.add_alert(disk_usage_alert)
 
-                    # Calcular la tasa de detección automática de errores
-                    if total_errors > 0:
-                        detection_rate = (contErrors / total_errors) * 100
-                        detection_rate_alert = f"Tasa de detección automática: {detection_rate:.2f}%."
-                        alert_model.add_alert(detection_rate_alert)
-                    else:
-                        alert_model.add_alert("No se detectaron errores totales.")
+            total_errors = self.get_total_errors()
 
+            # Calcular la tasa de detección automática de errores
+            if total_errors > 0:
+                detection_rate = (contErrors / total_errors) * 100
+                detection_rate_alert = f"Tasa de detección automática: {detection_rate:.2f}%."
+                alert_model.add_alert(detection_rate_alert)
+            else:
+                alert_model.add_alert("No se detectaron errores totales.")
 
-                    sleep(0.5)
-         
-         
+            sleep(0.5)
+
             sleep(2)
+
             @socketio.on('connect')
             def handle_connect():
                 print("Cliente conectado")
@@ -226,7 +254,7 @@ class AlertService:
             alert_model.add_alert(f"Error desconocido: {str(e)}")
 
 
-    def verificar_estado_smart_disk(self,line): 
+    def verificar_estado_smart_disk(self,line, detalle): 
         partes = line.split()
         
         valor_actual = int(partes[3])
@@ -235,7 +263,7 @@ class AlertService:
         if valor_actual >= valor_umbral:
             return "Buen estado"  
         else:
-            self.save_alerts_errors(line)
+            self.save_alerts_errors(detalle)
             return "Crítico" 
 
 
@@ -244,41 +272,45 @@ class AlertService:
     
     def save_alerts_errors(self, line): 
         db_path = os.path.join(os.getcwd(), 'alerts_errors.db')
- 
+
         if os.path.exists(db_path):
             print("La base de datos ya existe. No es necesario crearla de nuevo.")
         else: 
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
- 
+
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS errores (
                     id_campo INTEGER PRIMARY KEY AUTOINCREMENT,
                     nombre TEXT NOT NULL
                 )
             ''')
- 
+
             conn.commit()
             conn.close()
             
             print("Base de datos y tabla 'errores' creadas correctamente.")
          
+        first_value = line.split()[0]  # Extraer la primera palabra de 'line'
+        
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        
-        # Verificar si el 'line' ya existe en la tabla
-        cursor.execute("SELECT * FROM errores WHERE nombre = ?", (line,))
+         
+        cursor.execute("SELECT * FROM errores WHERE nombre LIKE ?", (f'%{first_value}%',))
         result = cursor.fetchone()
 
-        if result:
-            print("La línea ya existe en la tabla 'errores'. No se insertará.")
-        else:  
+        if result: 
+            cursor.execute("UPDATE errores SET nombre = ? WHERE id_campo = ?", (line, result[0]))
+            print(f"El valor '{first_value}' ya existía. Se ha actualizado con la nueva línea completa.")
+        else: 
             cursor.execute("INSERT INTO errores (nombre) VALUES (?)", (line,)) 
-            conn.commit()
-            print("Línea guardada en la tabla 'errores' correctamente.")
- 
+            print(f"Valor '{line}' guardado en la tabla 'errores' correctamente.")
+        
+        conn.commit()
         conn.close()
- 
+
+
+
     def get_alerts_errors(self): 
         db_path = os.path.join(os.getcwd(), 'alerts_errors.db')
  
@@ -291,47 +323,24 @@ class AlertService:
         conn.close()
  
         return [nombre[0] for nombre in nombres]
-
-    def save_disk_errors(self, disk_errors): 
-        conn = sqlite3.connect('alerts_errors.db')
-        cursor = conn.cursor()
  
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS errores (
-                id_campo INTEGER PRIMARY KEY AUTOINCREMENT,
-                nombre TEXT 
-            )
-        ''')
- 
-        cursor.execute('''
-            INSERT INTO errores (nombre)
-            VALUES (?)
-        ''', ("DiskError", disk_errors))
- 
-        conn.commit()
-        conn.close()
-
-
     def get_total_errors(self): 
         conn = sqlite3.connect('alerts_errors.db')
         cursor = conn.cursor()
-
-        # Verificar si la tabla 'errores' existe, si no existe, crearla
+ 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS errores (
                 id_campo INTEGER PRIMARY KEY AUTOINCREMENT,
                 nombre TEXT 
             );
-        ''')
-
-        # Ejecutar la consulta para obtener la suma de errores
+        ''')  
         cursor.execute('SELECT COUNT(nombre) FROM errores')
         total_errors = cursor.fetchone()[0]
-
-        # Manejar el caso de que no haya errores registrados aún
+ 
         if total_errors is None:
             total_errors = 0
-    
+
+        conn.commit()  
         conn.close()
 
         return total_errors
