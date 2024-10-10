@@ -145,11 +145,11 @@ class AlertService:
                     if disk_usage.percent > 60:
                         alert_model.add_alert(disk_usage_alert)
 
-            total_errors = self.get_total_errors()
+            total_errors = self.get_errors_list()
 
             # Calcular la tasa de detección automática de errores
-            if total_errors > 0:
-                detection_rate = (contErrors / total_errors) * 100
+            if len(total_errors)> 0:
+                detection_rate = (contErrors / len(total_errors)) * 100
                 detection_rate_alert = f"Tasa de detección automática: {detection_rate:.2f}%."
                 alert_model.add_alert(detection_rate_alert)
             else:
@@ -344,3 +344,36 @@ class AlertService:
         conn.close()
 
         return total_errors
+
+    def get_errors_list(self):
+        errores_disco = [
+        "Raw_Read_Error_Rate: Tasa de errores de lectura en bruto.",
+        "Power_On_Hours: Horas totales que el disco ha estado encendido.",
+        "Power_Cycle_Count: Número de veces que el disco ha sido encendido y apagado.",
+        "Write_Protect_Mode: Indica si el disco está protegido contra escritura.",
+        "SATA_Phy_Error_Count: Número de errores en la interfaz SATA.",
+        "Bad_Block_Rate: Tasa de bloques defectuosos en el disco.",
+        "Reported_Uncorrect: Número de errores reportados que no se pudieron corregir.",
+        "Unsafe_Shutdown_Count: Número de apagados no seguros que han ocurrido.",
+        "Temperature_Celsius: Temperatura actual del disco.",
+        "Reallocated_Event_Count: Número de eventos en los que se han reasignado bloques defectuosos."
+        ]
+        
+        return errores_disco
+    
+    def check_identified_errors(self): 
+        errores_disco = self.get_errors_list()
+        errores_bd = self.get_alerts_errors()
+ 
+        resultado = []
+
+        for error in errores_disco: 
+            error_clave = error.split(':')[0]
+
+            # Verificar si el error está en la base de datos
+            if any(error_clave in bd_error for bd_error in errores_bd):
+                resultado.append({'detectado': True})
+            else:
+                resultado.append({'detectado': False})
+
+        return resultado

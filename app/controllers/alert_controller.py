@@ -20,8 +20,13 @@ def create_alert_blueprint(model_instance):
 
 @alert_blueprint.route('/api/report_alerts', methods=['GET'])
 def get_all_alerts_errors():
-    alerts= alert_service.get_alerts_errors()
+    alerts= alert_service.get_errors_list()
     return jsonify(alerts=alerts)
+
+@alert_blueprint.route('/api/identified_alerts', methods=['GET'])
+def get_check_identified_errors():
+    state= alert_service.check_identified_errors()
+    return jsonify(state=state)
 
 
 @alert_blueprint.route('/api/get_devices', methods=['GET'])
