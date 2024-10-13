@@ -35,7 +35,7 @@ def balance_storage():
             return jsonify({'status': 'Error', 'message': 'No se enviaron datos de discos'}), 400
         
         # Llamar al servicio para balancear discos
-        balanced_disks = data_service.balance_disks_2(disks)
+        balanced_disks = data_service.balance_disks(disks)
         
         return jsonify({'status': 'Balance completado', 'disks': balanced_disks})
 
