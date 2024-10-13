@@ -1,4 +1,5 @@
 import os
+import random
 import sqlite3
 import subprocess 
 import psutil 
@@ -114,9 +115,9 @@ class AlertService:
                         descripcion_atributo = "Descripción no disponible."
  
                     if atributo == "Temperature_Celsius": 
-                        if len(parts) >= 12 and '(' in parts[10]:  # Cambiar a 10 para acceder a '(Min/Max' 
+                        if len(parts) >= 12 and '(' in parts[10]: 
                             current_temp = parts[9].strip()  
-                            # Extraer la parte de min/max
+                            # Extraer la parte de min/maxTasa
                             min_max_str = ' '.join(parts[10:]).strip() 
                             min_max_str = min_max_str.replace(')', '') 
                             try:
@@ -145,11 +146,11 @@ class AlertService:
                     if disk_usage.percent > 60:
                         alert_model.add_alert(disk_usage_alert)
 
-            total_errors = self.get_errors_list()
+            total_errors = self.get_total_errors()
 
             # Calcular la tasa de detección automática de errores
-            if len(total_errors)> 0:
-                detection_rate = (contErrors / len(total_errors)) * 100
+            if total_errors> 0:
+                detection_rate = (contErrors / total_errors) * 100
                 detection_rate_alert = f"Tasa de detección automática: {detection_rate:.2f}%."
                 alert_model.add_alert(detection_rate_alert)
             else:
@@ -258,8 +259,7 @@ class AlertService:
         partes = line.split()
         
         valor_actual = int(partes[3])
-        valor_umbral = int(partes[4])
-    
+        valor_umbral = int(partes[4]) 
         if valor_actual >= valor_umbral:
             return "Buen estado"  
         else:

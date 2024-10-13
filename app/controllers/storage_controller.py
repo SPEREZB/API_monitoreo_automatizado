@@ -19,6 +19,13 @@ def adjust_storage():
     adjustment_result = data_service.adjust_storage(demand)
     return jsonify(adjustment_result)
 
+@storage_blueprint.route('/api/data/liberar', methods=['POST'])
+def liberar_storage():
+    """Liberar espacio.""" 
+    ruta = request.json.get('ruta')
+    space = data_service.liberar_space(ruta)
+    return jsonify(space)
+
 @storage_blueprint.route('/api/data/balance', methods=['POST'])
 def balance_storage():
     """Balancea los archivos entre discos y dispositivos de almacenamiento."""
@@ -28,7 +35,7 @@ def balance_storage():
             return jsonify({'status': 'Error', 'message': 'No se enviaron datos de discos'}), 400
         
         # Llamar al servicio para balancear discos
-        balanced_disks = data_service.balance_disks(disks)
+        balanced_disks = data_service.balance_disks_2(disks)
         
         return jsonify({'status': 'Balance completado', 'disks': balanced_disks})
 

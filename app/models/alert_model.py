@@ -8,9 +8,14 @@ class AlertModel:
 
     def add_alert(self, message):
         """Añadir una alerta a la lista de alertas."""
-        if(len(self.alerts)>1):
-            self.alerts.clear()
-        self.alerts.append(message)
+
+        if(len(self.alerts)==0 and 'El uso del disco ha alcanzado' in message):
+            self.alerts.append(message)
+        else:
+            if(len(self.alerts)==1 and 'Tasa de detección automática:' in message):
+                self.alerts.append(message) 
+        if(len(self.alerts)>2):
+            self.alerts.clear() 
 
     def replace_alert(self, old_alert, new_alert):
         """Reemplazar una alerta existente con una nueva."""
