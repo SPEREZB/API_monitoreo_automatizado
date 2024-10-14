@@ -4,13 +4,7 @@ import os
 import shutil
 
 storage_blueprint = Blueprint('volumen', __name__)
-data_service = StorageService()
-
-@storage_blueprint.route('/api/data', methods=['GET'])
-def get_data():
-    """Obtiene los datos almacenados y su capacidad."""
-    data_info = data_service.get_storage_info()
-    return jsonify(data_info)
+data_service = StorageService() 
 
 @storage_blueprint.route('/api/data/adjust', methods=['POST'])
 def adjust_storage():

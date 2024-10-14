@@ -5,6 +5,8 @@ class AlertModel:
     def __init__(self):
         self.alerts = []
         self.disk= []
+        self.all_disk= []
+        self.disk_removed=[]
 
     def add_alert(self, message):
         """Añadir una alerta a la lista de alertas."""
@@ -43,6 +45,23 @@ class AlertModel:
     def get_disk(self):
         """Obtener disco."""
         return self.disk
+    
+    def get_removed_disk(self):
+        """Obtener disco."""
+        return self.disk_removed
+    
+    def remove_disk(self, selected_disk):
+        """Obtener disco."""
+        self.disk_removed.append(self.all_disk[selected_disk])
+        return self.disk
+    
+    def add_disk(self, devices):
+        """Escoger disco."""
+        if(len(self.disk)>0):
+            self.all_disk.clear()
+        self.all_disk=devices
+        return self.all_disk
+    
     def choose_disk(self, device):
         """Escoger disco."""
         if(len(self.disk)>0):

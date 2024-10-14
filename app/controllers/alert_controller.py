@@ -23,6 +23,13 @@ def get_all_alerts_errors():
     alerts= alert_service.get_alerts_errors()
     return jsonify(alerts=alerts)
 
+@alert_blueprint.route('/api/removeDisk', methods=['POST'])
+def remove_disk():
+    """Remover disco."""
+    disk = request.json.get('disk')
+    adjustment_result = alert_service.remove_disk(alert_model,disk)
+    return jsonify(adjustment_result)
+
 @alert_blueprint.route('/api/identified_alerts', methods=['GET'])
 def get_check_identified_errors():
     state= alert_service.check_identified_errors()
@@ -55,6 +62,13 @@ def get_devices():
                     'used': usage.used,
                     'available': usage.free
                 })
+
+        alert_model.add_disk(devices)
+     
+        removed_disks = alert_model.get_removed_disk()
+        for removed in removed_disks:
+            if removed in devices:
+                devices.remove(removed)
  
         return jsonify({
             'devices': devices,  

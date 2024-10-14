@@ -52,6 +52,9 @@ class AlertService:
     
     name_disk=""
 
+    def remove_disk(self,alert_model, selected_disk):
+             alert_model.remove_disk(selected_disk)  
+                
     def monitor_storage(self,alert_model):
         while True: 
                 global name_disk
