@@ -51,12 +51,12 @@ class AlertModel:
         return self.disk_removed
     
     def remove_disk(self, selected_disk):
-        """Obtener disco."""
+        """Quitar disco."""
         self.disk_removed.append(self.all_disk[selected_disk])
         return self.disk
     
     def add_disk(self, devices):
-        """Escoger disco."""
+        """Añadir disco."""
         if(len(self.disk)>0):
             self.all_disk.clear()
         self.all_disk=devices

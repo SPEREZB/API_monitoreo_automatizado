@@ -3,6 +3,8 @@ from time import sleep
 from flask import Flask
 from app.controllers.alert_controller import create_alert_blueprint 
 from app.controllers.storage_controller import storage_blueprint 
+from app.controllers.reconstruction_controller import reconstruction_blueprint 
+from app.controllers.inconsistency_controller import inconsistencia_blueprint 
 from flask_cors import CORS
 from app.models.alert_model import AlertModel
 from app.socketio import socketio 
@@ -20,6 +22,8 @@ def create_app():
     alert_model = AlertModel()
     app.register_blueprint(create_alert_blueprint(alert_model))
     app.register_blueprint(storage_blueprint)
+    app.register_blueprint(reconstruction_blueprint)
+    app.register_blueprint(inconsistencia_blueprint)
  
     # Iniciamos socketio
     socketio.init_app(app, cors_allowed_origins="*", async_mode='eventlet')
