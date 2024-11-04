@@ -21,9 +21,13 @@ class ReconstructionService:
         if not os.path.exists(disk_path):
             return jsonify({"error": "Disco no encontrado."}), 404
         
-        if not os.path.exists(ENCODED_DIR):
-            os.makedirs(ENCODED_DIR, exist_ok=True)  
+        ruta_especifica=  os.path.basename(disk_path)
+        nueva_ruta = os.path.join(ENCODED_DIR, ruta_especifica)
 
+        if not os.path.exists(nueva_ruta):
+            os.makedirs(nueva_ruta, exist_ok=True)  
+
+         
         block_index = 0
 
         try:
@@ -44,7 +48,7 @@ class ReconstructionService:
 
                                 # Construye el nombre del bloque con el nombre y extensión original del archivo
                                 block_filename = f"block_{block_index}_file_{os.path.splitext(file_name)[0]}{file_extension}"
-                                block_path = os.path.join(ENCODED_DIR, block_filename)
+                                block_path = os.path.join(nueva_ruta, block_filename)
 
                                 # Guarda temporalmente el bloque leído
                                 try:
@@ -61,7 +65,7 @@ class ReconstructionService:
                                         filefec.encode_to_files(
                                             inf=block_io,       # Pasa el objeto BytesIO
                                             fsize=fsize,        # Tamaño del bloque
-                                            dirname=ENCODED_DIR, # Directorio de salida
+                                            dirname=nueva_ruta, # Directorio de salida
                                             prefix=block_filename, # Prefijo del bloque
                                             k=MIN_SHARDS,       # Mínimo de fragmentos
                                             m=TOTAL_SHARDS      # Total de fragmentos
@@ -86,19 +90,23 @@ class ReconstructionService:
 
         return jsonify({"message": "Contenido del disco codificado en fragmentos.", "blocks_encoded": block_index})
  
-    def decode_disk(self, output_directory):
-        DECODED_DIR = 'decoded_files/'
-        os.makedirs(DECODED_DIR, exist_ok=True)
+    def decode_disk(self, output_directory): 
+        nueva_ruta = os.path.join(DECODED_DIR, output_directory)
+
+        ruta_de_fragmentos= os.path.join(ENCODED_DIR, output_directory)
+ 
+        os.makedirs(nueva_ruta, exist_ok=True)
 
         decoded_files = {}  
         block_index = 0
+
 
         # Recorrer cada bloque hasta que no haya más bloques
         while True:
             block_filename = f"block_{block_index}"
             available_shards_paths = [
-                os.path.join(output_directory, f)
-                for f in os.listdir(output_directory)
+                os.path.join(ruta_de_fragmentos, f)
+                for f in os.listdir(ruta_de_fragmentos)
                 if f.startswith(block_filename) and f.endswith('.fec')
             ]
 
@@ -111,7 +119,7 @@ class ReconstructionService:
 
             # Extraer el nombre del archivo original
             original_file_name = self.extract_file_name(available_shards_paths[0])
-            reconstructed_file_path = os.path.join(DECODED_DIR, original_file_name)
+            reconstructed_file_path = os.path.join(nueva_ruta, original_file_name)
 
             # Reconstruir el archivo a partir de los fragmentos
             try:
@@ -161,3 +169,10 @@ class ReconstructionService:
             return original_file_name 
         
         return base_name
+
+    def get_subdirectories(self):
+        try: 
+            subdirs = [d for d in os.listdir(ENCODED_DIR) if os.path.isdir(os.path.join(ENCODED_DIR, d))]
+            return subdirs
+        except FileNotFoundError:
+            return []
