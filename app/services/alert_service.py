@@ -61,7 +61,7 @@ class AlertService:
                 diskNew= alert_model.get_disk()
                 name_disk=diskNew
                 if len(diskNew) <= 0:
-                    print("error")
+                    a="Ningun disco"
                 elif(diskNew[0]!="/dev/sdb"): 
                     self.disk(alert_model)
                 else:

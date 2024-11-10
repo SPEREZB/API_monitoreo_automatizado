@@ -91,7 +91,15 @@ class ReconstructionService:
         return jsonify({"message": "Contenido del disco codificado en fragmentos.", "blocks_encoded": block_index})
  
     def decode_disk(self, output_directory): 
+        ruta_script = os.path.abspath(__file__) 
+        services_path = os.path.dirname(ruta_script)
+        app_path = os.path.dirname(services_path)
+        api_path = os.path.dirname(app_path)
+
+
+
         nueva_ruta = os.path.join(DECODED_DIR, output_directory)
+        nueva_ruta= api_path+"/"+nueva_ruta
 
         ruta_de_fragmentos= os.path.join(ENCODED_DIR, output_directory)
  
@@ -132,7 +140,7 @@ class ReconstructionService:
             print(f"Archivo {original_file_name} reconstruido y guardado en {reconstructed_file_path}.")
             block_index += 1
 
-        return jsonify({"message": "Decodificación completa.", "decoded_files": decoded_files})  
+        return jsonify({"message": "Decodificación completa.", "decoded_files": nueva_ruta})  
 
 
     def reconstruct_file_from_fragments(self, fragments, output_file):
