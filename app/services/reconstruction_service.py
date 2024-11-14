@@ -6,7 +6,7 @@ import os
 import math
 
 TOTAL_SHARDS = 10  # Total de fragmentos generados por bloque
-MIN_SHARDS = 6     # Mínimo de fragmentos necesarios por bloque
+MIN_SHARDS = 3     # Mínimo de fragmentos necesarios por bloque
 BLOCK_SIZE = 4 * 1024 * 1024  # Tamaño de bloque en bytes (4 MB)
 
 # Directorios temporales para almacenar fragmentos
@@ -20,9 +20,16 @@ class ReconstructionService:
         """Codifica todo el contenido de un disco en bloques y aplica código de borrado."""
         if not os.path.exists(disk_path):
             return jsonify({"error": "Disco no encontrado."}), 404
+
+        ruta_script = os.path.abspath(__file__) 
+        services_path = os.path.dirname(ruta_script)
+        app_path = os.path.dirname(services_path)
+        api_path = os.path.dirname(app_path)
         
         ruta_especifica=  os.path.basename(disk_path)
         nueva_ruta = os.path.join(ENCODED_DIR, ruta_especifica)
+        nueva_ruta= api_path+"/"+nueva_ruta
+
 
         if not os.path.exists(nueva_ruta):
             os.makedirs(nueva_ruta, exist_ok=True)  
@@ -88,7 +95,7 @@ class ReconstructionService:
         except Exception as e:
             print(f"Error en la lectura de archivos del disco: {e}")
 
-        return jsonify({"message": "Contenido del disco codificado en fragmentos.", "blocks_encoded": block_index})
+        return jsonify({"message": "Contenido del disco codificado en fragmentos.", "blocks_encoded": block_index, "ruta": nueva_ruta})
  
     def decode_disk(self, output_directory): 
         ruta_script = os.path.abspath(__file__) 

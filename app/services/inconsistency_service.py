@@ -93,18 +93,6 @@ class InconsistencyService:
         num_bits = sum(bin(byte).count('1') for byte in data)   
         return 'par' if num_bits % 2 == 0 else 'impar'
     
-    def update_parity(self, file_path):
-        """
-        Actualiza la paridad del archivo en la base de datos después de una reparación.
-        """
-        with open(file_path, 'rb') as file:
-            data = file.read()
-            nueva_paridad = self.calcular_paridad(data)
-        
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('UPDATE Parity SET parity = ? WHERE filename = ?', (nueva_paridad, os.path.basename(file_path)))
-            conn.commit()
 
     def add_file(self, file_path):
         """
@@ -119,6 +107,27 @@ class InconsistencyService:
                 cursor.execute('INSERT OR REPLACE INTO Parity (filename, parity) VALUES (?, ?)', nuevo_registro)
                 conn.commit()
                 print(f"Paridad registrada para {file_path}: {paridad}")
+
+
+
+
+
+
+
+
+
+    def update_parity(self, file_path):
+        """
+        Actualiza la paridad del archivo en la base de datos después de una reparación.
+        """
+        with open(file_path, 'rb') as file:
+            data = file.read()
+            nueva_paridad = self.calcular_paridad(data)
+        
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('UPDATE Parity SET parity = ? WHERE filename = ?', (nueva_paridad, os.path.basename(file_path)))
+            conn.commit()
 
     def resolve_inconsistencies(self):
         """
