@@ -1,3 +1,4 @@
+import datetime
 import io
 import os
 import sqlite3
@@ -31,43 +32,45 @@ class InconsistencyService:
             print("Tabla 'Parity' creada o ya existe.") 
 
     def analyze_inconsistencies(self):
-        """
-        Analiza cada archivo en la ruta especificada para encontrar inconsistencias.
-        Retorna un diccionario con el reporte de inconsistencias.
-        """
-        inconsistencias = {}
-        
+        inconsistencias = []
         for filename in os.listdir(self.directory_path):
             file_path = os.path.join(self.directory_path, filename)
 
             if os.path.isdir(file_path):
-                inconsistencias[filename] = "Es una carpeta"
-                continue
-             
-            if not os.path.isfile(file_path):
-                inconsistencias[filename] = "No es un archivo válido."
-                continue
-            
-            if os.path.getsize(file_path) == 0:
-                inconsistencias[filename] = "El archivo está vacío."
+                estado = "Carpeta"
+                detalles = "El elemento es una carpeta, no un archivo."
+            elif not os.path.isfile(file_path):
+                estado = "No es un archivo válido."
+                detalles = "El elemento no es un archivo estándar."
+            elif os.path.getsize(file_path) == 0:
+                estado = "El archivo está vacío."
+                detalles = "El archivo no contiene datos."
             else:
-                # Verificar paridad del archivo
-                if not self.verificar_paridad(file_path):
-                    inconsistencias[filename] = "Inconsistente"
-                else:
-                    inconsistencias[filename] = "Archivo válido."
+                estado, detalles = self.verificar_paridad(file_path)
+                if estado is True:
+                    estado = "Archivo válido"
+
+            inconsistencias.append({
+                "id": len(inconsistencias) + 1,
+                "nombre": filename,
+                "fecha": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "estado": estado,
+                "detalles": detalles
+            })
 
         return inconsistencias
+
 
     def verificar_paridad(self, file_path):
         """
         Verifica la integridad del archivo utilizando un algoritmo de paridad.
-        Retorna True si el archivo es válido, False en caso contrario.
+        Retorna una tupla (estado, detalle). El estado puede ser True para válido,
+        o "Inconsistente" con una descripción del problema en caso contrario.
         """
         try:
-            with open(file_path, 'rb') as file: 
-                data = file.read() 
-                paridad = self.calcular_paridad(data)
+            with open(file_path, 'rb') as file:
+                data = file.read()
+                paridad_calculada = self.calcular_paridad(data)
 
                 # Obtener la paridad esperada de la base de datos
                 with sqlite3.connect(self.db_path) as conn:
@@ -75,15 +78,21 @@ class InconsistencyService:
                     cursor.execute('SELECT parity FROM Parity WHERE filename = ?', (os.path.basename(file_path),))
                     result = cursor.fetchone()
 
-                    # Si no hay paridad esperada, agregar un nuevo registro de paridad
                     if result is None:
+                        # No hay paridad registrada: registrar y considerar válido
                         self.add_file(file_path)
-                        return True   
+                        return True, "Paridad registrada automáticamente, archivo considerado válido."
 
-                    return paridad == result[0]
+                    paridad_esperada = result[0]
+                    if paridad_calculada != paridad_esperada:
+                        # Paridad no coincide
+                        return "Inconsistente", f"La paridad calculada ({paridad_calculada}) no coincide con la esperada ({paridad_esperada})."
+
+                # Si todo está bien
+                return True, "La paridad fue la esperada"
         except Exception as e:
-            print(f"Error al verificar el archivo {file_path}: {e}")
-            return False
+            return "Inconsistente", f"Error al procesar el archivo: {e}"
+
 
     def calcular_paridad(self, data):
         """
@@ -107,6 +116,47 @@ class InconsistencyService:
                 cursor.execute('INSERT OR REPLACE INTO Parity (filename, parity) VALUES (?, ?)', nuevo_registro)
                 conn.commit()
                 print(f"Paridad registrada para {file_path}: {paridad}")
+
+    def get_parity_for_name(self, path):
+        """
+        Consulta la base de datos para obtener la paridad de todos los archivos en la ruta especificada.
+        Retorna una lista de diccionarios con los datos formateados para cada archivo.
+        """
+        try:
+            # Obtener todos los archivos en la ruta proporcionada
+            archivos = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+             
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                 
+                datos_formateados = []
+
+                for archivo in archivos: 
+                    cursor.execute('SELECT filename, parity FROM Parity WHERE filename = ?', (archivo,))
+                    result = cursor.fetchone()
+                    
+                    if result is None:
+                        # Si no se encuentra el archivo en la base de datos, agregamos un registro con un mensaje de error
+                        datos_formateados.append({
+                            "id": len(datos_formateados) + 1, 
+                            "nombre": archivo,
+                            "fecha": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            "estado": "No encontrado",
+                            "detalles": "Archivo no encontrado en la base de datos."
+                        })
+                    else:
+                        # Si se encuentra el archivo, agregamos los datos formateados
+                        datos_formateados.append({
+                            "id": len(datos_formateados) + 1,  
+                            "nombre": result[0],
+                            "fecha": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            "estado": "Archivo válido" if result[1] == "par" else "Inconsistente",
+                            "detalles": result[1]
+                        })
+ 
+            return datos_formateados
+        except Exception as e:
+            return None, f"Error al consultar la base de datos: {e}"
 
 
 

@@ -3,8 +3,7 @@ import random
 import sqlite3
 import subprocess 
 import psutil 
-from time import sleep
-import re
+from time import sleep 
 from app.socketio import socketio  
 
  

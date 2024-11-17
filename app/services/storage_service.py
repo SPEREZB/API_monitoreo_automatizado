@@ -119,46 +119,56 @@ class StorageService:
         """Balancea los archivos entre discos y dispositivos de almacenamiento.""" 
         
         # Encontrar el disco con mayor y menor porcentaje de uso
-        disks.sort(key=lambda d: (self.convert_size_to_bytes(d['used']) / self.convert_size_to_bytes(d['size'])) * 100, reverse=True)
-        largest_disk = disks[0]
-        smallest_disk = disks[-1]
+        if len(disks) < 2:
+            print("Se necesitan al menos dos discos para realizar el balanceo.")
+            return disks
 
-        # Obtener el porcentaje de uso actual de ambos discos
-        largest_percentage = (self.convert_size_to_bytes(largest_disk['used']) / self.convert_size_to_bytes(largest_disk['size'])) * 100
-        smallest_percentage = (self.convert_size_to_bytes(smallest_disk['used']) / self.convert_size_to_bytes(smallest_disk['size'])) * 100
+        # Continuar hasta que no haya más diferencias significativas entre discos
+        while True:
+            # Ordenar los discos por porcentaje de uso (mayor a menor)
+            disks.sort(key=lambda d: (self.convert_size_to_bytes(d['used']) / self.convert_size_to_bytes(d['size'])) * 100, reverse=True)
+            largest_disk = disks[0]
+            smallest_disk = disks[-1]
 
-        print(f"Disco mayor: {largest_disk['filesystem']} ({largest_percentage:.2f}% usado)")
-        print(f"Disco menor: {smallest_disk['filesystem']} ({smallest_percentage:.2f}% usado)")
+            # Obtener el porcentaje de uso actual del disco más lleno y el más vacío
+            largest_percentage = (self.convert_size_to_bytes(largest_disk['used']) / self.convert_size_to_bytes(largest_disk['size'])) * 100
+            smallest_percentage = (self.convert_size_to_bytes(smallest_disk['used']) / self.convert_size_to_bytes(smallest_disk['size'])) * 100
 
-        # Continuar hasta que el disco pequeño se acerque al porcentaje del disco grande (sin superarlo)
-        while smallest_percentage < largest_percentage:
-            # Calcular cuánto espacio libre tiene el disco pequeño hasta alcanzar el porcentaje del disco grande
-            max_percentage = largest_percentage - 1  # Dejar un pequeño margen (1%)
+            print(f"Disco más lleno: {largest_disk['filesystem']} ({largest_percentage:.2f}% usado)")
+            print(f"Disco más vacío: {smallest_disk['filesystem']} ({smallest_percentage:.2f}% usado)")
+
+            # Si la diferencia entre los discos es menor al 1%, consideramos que están balanceados
+            if largest_percentage - smallest_percentage < 1:
+                print("Los discos están balanceados.")
+                break
+
+            # Calcular cuánto espacio mover para reducir la diferencia
+            max_percentage = largest_percentage - 1  # Dejar un margen del 1%
             target_used_in_smallest = (max_percentage / 100) * self.convert_size_to_bytes(smallest_disk['size'])
             space_to_move = target_used_in_smallest - self.convert_size_to_bytes(smallest_disk['used'])
 
             if space_to_move <= 0:
+                print("No hay espacio suficiente para continuar el balanceo.")
                 break 
 
-            print(f"Moviendo {space_to_move} bytes del disco grande al pequeño")
+            print(f"Moviendo {space_to_move} bytes del disco {largest_disk['filesystem']} al disco {smallest_disk['filesystem']}")
 
             # Verificar si el disco más grande tiene suficientes archivos para mover
             if space_to_move > largest_disk['available']:
-                raise ValueError("No hay suficiente espacio en el disco grande para mover.")
+                raise ValueError("No hay suficiente espacio disponible en el disco más lleno para mover.")
 
-            # Mover los archivos del disco grande al disco pequeño
+            # Mover los archivos del disco más lleno al disco más vacío
             self.move_files(largest_disk['mountpoint'], smallest_disk['mountpoint'], space_to_move)
 
             # Actualizar los espacios usados de ambos discos
             largest_disk['used'] = f"{self.convert_bytes_to_size(self.convert_size_to_bytes(largest_disk['used']) - space_to_move)}"
             smallest_disk['used'] = f"{self.convert_bytes_to_size(self.convert_size_to_bytes(smallest_disk['used']) + space_to_move)}"
 
-            # Actualizar los porcentajes
+            # Actualizar los porcentajes y mostrar el estado actual
             largest_percentage = (self.convert_size_to_bytes(largest_disk['used']) / self.convert_size_to_bytes(largest_disk['size'])) * 100
             smallest_percentage = (self.convert_size_to_bytes(smallest_disk['used']) / self.convert_size_to_bytes(smallest_disk['size'])) * 100
 
-            print(f"Nuevo porcentaje - Disco grande: {largest_percentage:.2f}% | Disco pequeño: {smallest_percentage:.2f}%")
-
+            print(f"Nuevo porcentaje - Disco más lleno: {largest_percentage:.2f}% | Disco más vacío: {smallest_percentage:.2f}%")
         return disks
 
 

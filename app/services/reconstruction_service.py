@@ -1,12 +1,10 @@
 import io
-import tempfile
-from flask import jsonify, request
+from flask import jsonify
 from zfec import filefec
 import os
-import math
 
-TOTAL_SHARDS = 10  # Total de fragmentos generados por bloque
-MIN_SHARDS = 3     # Mínimo de fragmentos necesarios por bloque
+TOTAL_SHARDS = 8  # Total de fragmentos generados por bloque
+MIN_SHARDS = 5     # Mínimo de fragmentos necesarios por bloque
 BLOCK_SIZE = 4 * 1024 * 1024  # Tamaño de bloque en bytes (4 MB)
 
 # Directorios temporales para almacenar fragmentos

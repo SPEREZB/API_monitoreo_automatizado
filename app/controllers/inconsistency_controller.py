@@ -24,6 +24,15 @@ def analyze_inconsistencies():
         return jsonify(resultado), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+@inconsistencia_blueprint.route('/api/get_parity_for_name', methods=['POST'])
+def get_parity_for_name():
+    try: 
+        data = request.json.get('folder')  
+        resultado = inconsistencia_service.get_parity_for_name(data)  
+        return jsonify(resultado), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
  
 @inconsistencia_blueprint.route('/api/resolver', methods=['POST'])
 def resolve_inconsistencies():
